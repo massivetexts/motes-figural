@@ -1,3 +1,8 @@
+data/ttct_figural
+data/booklet-meta-full.csv
+.DS_Store
+data/to_sort
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
