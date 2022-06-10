@@ -1,8 +1,12 @@
 data/ttct_figural
 data/booklet-meta-full.csv
+data/outputs/test1
 .DS_Store
 data/to_sort
+data/vids
+data/frames
 data/matches.jpg
+data/blank-bookletA.pdf
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
