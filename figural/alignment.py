@@ -4,10 +4,18 @@ from pdf2image import convert_from_path
 import cv2
 from PIL import Image
 
+
+def name_from_path(path):
+    import hashlib
+    parent_folder_name = path.parent.stem
+    parent_hash = hashlib.sha1(parent_folder_name.encode('utf-8')).hexdigest()[:5]
+    name = f"{parent_hash}-{path.stem}"
+    return name
 class Booklet():
 
     # cropmap specifies where each activity is
     # # via (page, leftcropprop, topcropprop, rightcropprop, lowercropprop)
+    # crops are proportions of page w/h, *based* on the target booklet.
     cropmap = dict()
     cropmap['booklet_a'] = dict(
         activity1=(0, 0.52, 0.09, 0.94, 0.72),
@@ -73,16 +81,24 @@ class Booklet():
             collector.append(imgs[-1])
         return collector
 
-    def get_activity(self, activity, mod=0, square=False, use_originals=False):
+    def get_all_activities(self, mod=0, square=True, use_originals=False, **kwargs):
+        imgs = dict()
+        for activity in self.cropmap[f'booklet_{self.booklet}'].keys():
+            img = self.get_activity(activity.replace('activity', ''), mod=mod,
+                                    square=square, use_originals=use_originals, **kwargs)
+            imgs[activity] = img
+        return imgs
+
+    def get_activity(self, activity, mod=0, square=True, use_originals=False, **kwargs):
         '''
         Get a custom crop from the page.
         mod: int in pixels. Use the modifier to tighten (positive number) 
         or loosen (negative number) the bounding box
         square: crop to a square, anchored in center
         '''
-        if len(self._images) == 0:
-            print('No alignmentment, using originals')
-            use_originals = True
+        if not use_originals and (len(self._images) == 0):
+            print('Running alignment first')
+            self.align(**kwargs)
         images = self._originals if use_originals else self._images
         pagenum, leftprop, upperprop, rightprop, lowerprop = self.cropmap[f'booklet_{self.booklet}']['activity'+str(activity)]
         page = images[pagenum]
@@ -138,9 +154,22 @@ class Booklet():
 
         if format == 'auto':
             format = self.format
-
-        sources = self.double() if format=='double' else self.single()
-        targets = self._targetbooklet.double() if format == 'double' else self._targetbooklet.single()
+        elif (format == 'smart') and (self.format == 'single'):
+            # if the scans were single, the 'smart' thing is to align as singles rather than
+            # patching together
+            format = self.format
+        
+        if format == 'double':
+            sources = self.double()
+            targets = self._targetbooklet.double()
+        elif format == 'single':
+            sources = self.single()
+            targets = self._targetbooklet.single()
+        elif format == 'smart':
+            sd, ss = self.double(), self.single()
+            sources = [sd[0]] + ss[2:]
+            td, ts = self._targetbooklet.double(), self._targetbooklet.single()
+            targets = [td[0]] + ts[2:]
 
         pagen = min(len(sources), len(targets))
 
@@ -158,6 +187,8 @@ class Booklet():
             # patch back together into double format
             #return aligned, h
             self._images = self._double_from_single(aligned)
+        elif format == 'smart':
+            self._images = [aligned[0]] + self._double_from_single(aligned[1:])
         else:
             raise Exception(f"Not a supported format: {format}")
 
