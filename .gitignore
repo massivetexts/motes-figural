@@ -7,6 +7,8 @@ data/vids
 data/frames
 data/matches.jpg
 data/blank-bookletA.pdf
+data/outputs/for_coding
+data/outputs/for_coding.zip
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

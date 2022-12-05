@@ -2,6 +2,7 @@ import torch
 from PIL import Image, ImageEnhance, ImageOps
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 
 def autoset_device():
     if torch.cuda.is_available():
@@ -62,7 +63,7 @@ def image_loader(impaths, contrast_factor=1, crop_bottom=False):
 def preprocess_imlist(imgs, preprocessor, device="cpu"):
     '''Pre-process a list of PIL images and stack, for batch inferences'''
     image_input = []
-    for im in imgs:
+    for im in tqdm(imgs):
         if type(im) == FiguralImage:
             im = im.im
         try:

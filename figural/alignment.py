@@ -1,7 +1,6 @@
 import numpy as np
 import cv2
 from pdf2image import convert_from_path
-import cv2
 from PIL import Image
 
 
@@ -88,6 +87,11 @@ class Booklet():
                                     square=square, use_originals=use_originals, **kwargs)
             imgs[activity] = img
         return imgs
+
+    def get_page(self, activity, use_originals=False):
+        pagenum, leftprop, upperprop, rightprop, lowerprop = self.cropmap[f'booklet_{self.booklet}']['activity'+str(activity)]
+        images = self._originals if use_originals else self._images
+        return images[pagenum]
 
     def get_activity(self, activity, mod=0, square=True, use_originals=False, **kwargs):
         '''
