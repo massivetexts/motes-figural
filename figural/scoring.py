@@ -29,6 +29,7 @@ class FiguralImage():
         return self
 
     def crop(self, crop_prop=1):
+        ''' Crops bottom'''
         if crop_prop < 1:
             w,h = self.im.size
             self.im = self.im.crop((0,0,w, int(crop_prop*h)))
@@ -41,7 +42,6 @@ class FiguralImage():
         raw: return count of ink, else proportion
 
         TODO: have norms of starting amount of ink
-        TODO: calculate on cropped version
         '''
         greyim = ImageOps.grayscale(self._original).resize((200,200)).crop((0,0,200,int(crop_prop*200)))
         greyvals = np.array(greyim)
@@ -88,6 +88,42 @@ def collage(impaths, cols, rows='auto', thumbnail=None):
     if thumbnail:
         canvas.thumbnail(thumbnail)
     return canvas
+
+
+
+def grammar(x):
+    ''' Very basic add indefinite articles (e.g. 'mountain' > 'a mountain', 'egg' > 'an egg') '''
+    no_article = ['lightning', 'water'] # mass nouns and such. hand coded based on data
+    if (x[-1] == 's') or (x in no_article):
+        return x
+    elif x[0] in list("aeiou"):
+        return f"an {x}"
+    else:
+        return f"a {x}"
+
+def get_zerosims(image_inputs, model, zero_terms, device='cpu', idx=None):
+    ''' Return average image similarity to other images
+    
+    zero terms should be a list of zero-originality terms for the given activity.
+    '''
+    import clip
+    zero_terms_tokens = clip.tokenize(zero_terms).to(device)
+
+    with torch.no_grad():
+        image_features = model.encode_image(image_inputs)
+        txt_features = model.encode_text(zero_terms_tokens)
+
+    image_features = image_features / image_features.norm(dim=1, keepdim=True)
+    txt_features = txt_features / txt_features.norm(dim=1, keepdim=True)
+    simmat = image_features @ txt_features.t()
+    x = simmat.cpu().numpy()
+    stats = np.vstack([x.min(1), x.mean(1), np.sort(x, axis=1)[:, :3].mean(1)])
+
+    # return series if index provided
+    if idx:
+        return pd.DataFrame(stats, index=['min_zlist', 'mean_zlist', 'lowest3_zlist'], columns=idx).T
+    else:
+        return stats
 
 def get_avg_sims(image_inputs, model, idx=None):
     ''' Return average image similarity to other images'''
