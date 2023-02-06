@@ -16,6 +16,19 @@ class Booklet():
     # # via (page, leftcropprop, topcropprop, rightcropprop, lowercropprop)
     # crops are proportions of page w/h, *based* on the target booklet.
     cropmap = dict()
+    cropmap['booklet_b'] = dict(
+        activity1=(0, 0.52, 0.09, 0.94, 0.72),
+        activity2a=(1,0.089,0.3,0.263,.579),
+        activity2b=(1,0.263,0.31,0.437,.579),
+        activity2c=(1,0.089,0.579,0.263,.849),
+        activity2d=(1,0.263,0.579,0.437,.849),
+        activity2e=(1,0.581,0.043,0.755,.312),
+        activity2f=(1,0.755,0.042,0.929,.310),
+        activity2g=(1,0.581,0.311,0.755,.580),
+        activity2h=(1,0.755,0.310,0.929,.580),
+        activity2i=(1,0.581,0.580,0.756,.850),
+        activity2j=(1,0.755,0.58,0.929,.850),
+    )
     cropmap['booklet_a'] = dict(
         activity1=(0, 0.52, 0.09, 0.94, 0.72),
         activity2a=(1,0.075,0.315,0.245,.585),
