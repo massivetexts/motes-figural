@@ -1,14 +1,16 @@
 data/ttct_figural
 data/booklet-meta-full.csv
-data/outputs/test1
+data/outputs/bookleta
 .DS_Store
 data/to_sort
 data/vids
 data/frames
 data/matches.jpg
-data/blank-bookletA.pdf
+data/precleaning/
 data/outputs/for_coding
 data/outputs/for_coding.zip
+# saved models don't really fit in git
+data/models
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
