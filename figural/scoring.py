@@ -4,17 +4,6 @@ import numpy as np
 import pandas as pd
 from tqdm import tqdm
 
-def autoset_device():
-    if torch.cuda.is_available():
-        device = "cuda"
-    elif torch.has_mps:
-        print("CLIP doesn't work on M1 GPUs yet; check here for updates: https://github.com/openai/CLIP/issues/247")
-        #device = "mps"
-        device = "cpu"
-    else:
-        device = "cpu"
-    return device
-
 class FiguralImage():
 
     def __init__(self, path):
@@ -72,34 +61,6 @@ def preprocess_imlist(imgs, preprocessor, device="cpu"):
             print('preprocesserror with an image; no handling yet.')
     return torch.tensor(np.stack(image_input)).to(device)
 
-def collage(impaths, cols, rows='auto', thumbnail=None):
-    ''' Collage from a set of image paths'''
-    w,h = None, None
-    canvas = None
-    if rows == 'auto':
-        rows = 1 + len(impaths) // cols
-    for i, impath in enumerate(impaths[:cols*rows]):
-        im = Image.open(impath)
-        if w == None:
-            w, h = im.size
-            canvas = Image.new(mode=im.mode, size=(w*cols, h*rows), color='white')
-        col, row = i % cols, i // cols
-        canvas.paste(im, (w*col, h*row))
-    if thumbnail:
-        canvas.thumbnail(thumbnail)
-    return canvas
-
-
-
-def grammar(x):
-    ''' Very basic add indefinite articles (e.g. 'mountain' > 'a mountain', 'egg' > 'an egg') '''
-    no_article = ['lightning', 'water'] # mass nouns and such. hand coded based on data
-    if (x[-1] == 's') or (x in no_article):
-        return x
-    elif x[0] in list("aeiou"):
-        return f"an {x}"
-    else:
-        return f"a {x}"
 
 def get_zerosims(image_inputs, model, zero_terms, device='cpu', idx=None):
     ''' Return average image similarity to other images
