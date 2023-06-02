@@ -1,0 +1,15 @@
+root_dir: ../..
+tests:
+- name: ttct
+  tasks:
+  - name: bookleta
+    directory: data/outputs/bookleta
+- name: audra
+  tasks:
+  - name: primary
+    directory: ../../data/others/audra/drawings/primary_images
+  - name: general1
+    directory: ../../data/others/audra/drawings/rater_generalization_one_images
+  - name: far
+    directory: ../../data/others/audra/drawings/far_generalization_images
+  
