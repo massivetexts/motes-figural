@@ -4,6 +4,8 @@ tests:
   tasks:
   - name: bookleta
     directory: data/outputs/bookleta
+  - name: bookletb
+    directory: data/outputs/bookletb
 - name: audra
   tasks:
   - name: primary
