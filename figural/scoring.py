@@ -2,7 +2,8 @@ import torch
 from PIL import Image, ImageEnhance, ImageOps
 import numpy as np
 import pandas as pd
-from tqdm import tqdm
+from tqdm.auto import tqdm
+import clip
 
 class FiguralImage():
 
@@ -41,89 +42,147 @@ class FiguralImage():
         else:
             return ink_count / greyvals.size
 
-def image_loader(impaths, contrast_factor=1, crop_bottom=False):
-    '''A generator for loading images gradually'''
-    for impath in impaths:
-        im = FiguralImage(impath).contrast(contrast_factor)
-        if crop_bottom:
-            im = im.crop(0.85)
-        yield im
+class FiguralScorer():
 
-def preprocess_imlist(imgs, preprocessor, device="cpu"):
-    '''Pre-process a list of PIL images and stack, for batch inferences'''
-    image_input = []
-    for im in tqdm(imgs):
-        if type(im) == FiguralImage:
-            im = im.im
-        try:
-            image_input.append(preprocessor(im))
-        except:
-            print('preprocesserror with an image; no handling yet.')
-    return torch.tensor(np.stack(image_input)).to(device)
+    '''A class for scoring figural responses as a batch'''
 
+    def __init__(self, impaths, model, preprocess, device='cpu', contrast_factor=4, crop_bottom=False):
+        self.impaths = impaths
+        self.model = model
+        self.preprocess = preprocess
+        self.device = device
+        self.image_features = None
+        self.contrast_factor = contrast_factor
+        self.crop_bottom = crop_bottom
 
-def get_zerosims(image_inputs, model, zero_terms, device='cpu', idx=None):
-    ''' Return average image similarity to other images
+    def image_loader(self):
+        '''A generator for loading images gradually'''
+        for impath in self.impaths:
+            im = FiguralImage(impath).contrast(self.contrast_factor)
+            if self.crop_bottom:
+                im = im.crop(0.85)
+            yield im
+
+    def preprocessed_image_loader(self, imgs, batch_size=500):
+        '''Pre-process a list of PIL images and stack, for batch inferences.
+        If batch_size is provided, will batch the images into tensors of that size, else the generator will yield a single large tensor.
+        
+         Returns a generator of tensors.
+         '''
+        if not batch_size:
+            batch_size = len(self.impaths)
+
+        batch = []
+        while True:
+            # build batch with imgs, up to batch_size or until imgs is exhausted
+            while len(batch) < batch_size:
+                try:
+                    batch.append(next(imgs))
+                except StopIteration:
+                    break
+            # if batch is empty, imgs is exhausted
+            if not batch:
+                break
+            # else, preprocess and yield
+            else:
+                yield torch.tensor(np.stack([self.preprocess(im.im) for im in batch])).to(self.device)
+                batch = []
     
-    zero terms should be a list of zero-originality terms for the given activity.
-    '''
-    import clip
-    zero_terms_tokens = clip.tokenize(zero_terms).to(device)
+    def get_image_features(self, normalize=True, batch_size=500, force=False, use_tqdm=True):
+        ''' Get image features for all images in impaths, preprocessed in batches. Saves the features to self.image_features. '''
+        if not force and self.image_features is not None:
+            return self.image_features
+        
+        imload = self.image_loader()
+        preprocessed_imload = self.preprocessed_image_loader(imload, batch_size=batch_size)
+        if use_tqdm:
+            preprocessed_imload = tqdm(preprocessed_imload,
+                                       total=len(self.impaths)//batch_size + (1 if len(self.impaths) % batch_size else 0),
+                                       desc='Getting CLIP features', leave=False)
 
-    with torch.no_grad():
-        image_features = model.encode_image(image_inputs)
-        txt_features = model.encode_text(zero_terms_tokens)
-
-    image_features = image_features / image_features.norm(dim=1, keepdim=True)
-    txt_features = txt_features / txt_features.norm(dim=1, keepdim=True)
-    simmat = image_features @ txt_features.t()
-    x = simmat.cpu().numpy()
-    stats = np.vstack([x.min(1), x.mean(1), np.sort(x, axis=1)[:, :3].mean(1)])
-
-    # return series if index provided
-    if idx:
-        return pd.DataFrame(stats, index=['min_zlist', 'mean_zlist', 'lowest3_zlist'], columns=idx).T
-    else:
-        return stats
-
-def get_avg_sims(image_inputs, model, idx=None):
-    ''' Return average image similarity to other images'''
-    with torch.no_grad():
-        image_features = model.encode_image(image_inputs)
-
-    # normalize tensors
-    image_features_n = image_features / image_features.norm(dim=1, keepdim=True)
-
-    # cosine similarity
-    simmat = image_features_n @ image_features_n.t()
+        for batch in preprocessed_imload:
+            with torch.no_grad():
+                batch_features = self.model.encode_image(batch)
+            if self.image_features is None:
+                self.image_features = batch_features
+            else:
+                self.image_features = torch.cat([self.image_features, batch_features])
+        if normalize:
+            self.image_features = self.image_features / self.image_features.norm(dim=1, keepdim=True)
+        
+        return self.image_features
     
-    # correct for self-sim
-    avg_sims = simmat.sum(1).sub(1).div(simmat.shape[0]-1).cpu().numpy()
+    def get_zerosims(self, zero_terms, idx=None):
+        ''' Return average image similarity to other images
+    
+        zero terms should be a list of zero-originality terms for the given activity.
+        '''
+        zero_terms_tokens = clip.tokenize(zero_terms).to(self.device)
 
-    # return series if index provided
-    if idx:
-        return pd.Series(avg_sims, index=idx)
-    else:
-        return avg_sims
+        with torch.no_grad():
+            txt_features = self.model.encode_text(zero_terms_tokens)
 
-def similarity_to_target(image_inputs, target_path, model, preprocess, device, idx=None):
-    ''' Return similarity of images to a target image (usually a blank image)'''
-    blankloader = image_loader([target_path], contrast_factor=4, crop_bottom=True)
-    blank_inputs = preprocess_imlist(blankloader, preprocess, device=device)
+        txt_features = txt_features / txt_features.norm(dim=1, keepdim=True)
+        img_features = self.get_image_features(normalize=True)
+        simmat = img_features @ txt_features.t()
+        x = simmat.cpu().numpy()
+        stats = np.vstack([x.min(1), x.mean(1), np.sort(x, axis=1)[:, :3].mean(1)])
+        if idx is not None:
+            return pd.DataFrame(stats, index=['min_zlist', 'mean_zlist', 'lowest3_zlist'], columns=idx).T
+        else:
+            return stats
 
-    with torch.no_grad():
-        image_features = model.encode_image(image_inputs)
-        blank_img_features = model.encode_image(blank_inputs)
+    def get_avg_sims(self, idx=True, meta=True):
+        ''' Return average image similarity to other images.
+        
+        idx=True returns a DataFrame with index=impaths, else returns numpy'''
+        img_features = self.get_image_features(normalize=True)
+        simmat = img_features @ img_features.t()
+        avg_sims = simmat.sum(1).sub(1).div(simmat.shape[0]-1).cpu().numpy()
+        if idx:
+            sims = pd.Series(avg_sims, index=self.impaths).reset_index()
+            sims.columns = ['path', 'avg_sim'] 
+            sims['id'] = sims.path.apply(lambda x: x.stem)
+            sims.path = sims.path.apply(lambda x: str(x))
+            if meta:
+                sims = self._add_meta_to_df(sims)
+            # add columns with meta to sims
+            return sims
+        else:
+            return avg_sims
+        
+    def _add_meta_to_df(self, df):
+        '''Add metadata to a dataframe'''
+        meta = dict(contrast_factor=self.contrast_factor, crop_bottom=self.crop_bottom)
+        for k,v in meta.items():
+            df[k] = v
+        return df
+        
+    def get_sims_to_target(self, target_path, idx=True, meta=True):
+        ''' Return similarity of images to a target image (usually a blank image)'''
+        blankloader = self.image_loader([target_path], contrast_factor=4, crop_bottom=True)
+        blank_inputs = self.preprocess_imlist(blankloader, self.preprocess, device=self.device)
 
-    # normalize tensors
-    image_features = image_features / image_features.norm(dim=1, keepdim=True)
-    blank_img_features = blank_img_features / blank_img_features.norm(dim=1, keepdim=True)
+        img_features = self.get_image_features(normalize=True)
+        with torch.no_grad():
+            blank_img_features = self.model.encode_image(blank_inputs)
 
-    # cosine similarity
-    simmat = image_features @ blank_img_features.t()
-    sims = simmat[:, 0].cpu().numpy()
-    # return series if index provided
-    if idx:
-        return pd.Series(sims, index=idx)
-    else:
-        return sims
+        # normalize tensors
+        blank_img_features = blank_img_features / blank_img_features.norm(dim=1, keepdim=True)
+
+        simmat = img_features @ blank_img_features.t()
+        sims = simmat[:, 0].cpu().numpy()
+        if idx:
+            return pd.Series(sims, index=idx)
+        
+        if idx:
+            sims = pd.Series(sims, index=self.impaths).reset_index()
+            sims.columns = ['path', 'blank_sim'] 
+            sims['id'] = sims.path.apply(lambda x: x.stem)
+            sims.path = sims.path.apply(lambda x: str(x))
+            if meta:
+                sims = self._add_meta_to_df(sims)
+            # add columns with meta to sims
+            return sims
+        else:
+            return sims
