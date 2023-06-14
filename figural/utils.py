@@ -13,10 +13,12 @@ def autoset_device():
         device = "cpu"
     return device
 
-def task_ref(root_dir, activity_name_match=None):
+def task_ref(root_dir, activity_name_match=None, print_dir=False):
     '''For a task/activity listing, return a dict reference of images files'''
     impaths = dict()
-    print('Directories of images:', end='\t')
+    if print_dir:
+        print('Directories of images:', end='\t')
+
     for subdir in Path(root_dir).iterdir():
         if not subdir.is_dir():
             continue
@@ -24,8 +26,10 @@ def task_ref(root_dir, activity_name_match=None):
             continue
         imgs = list(subdir.glob('*jpg')) + list(subdir.glob('*png'))
         impaths[subdir.name] = imgs
-        print(subdir.name, f"({len(imgs)} files)", end='\t')
-    print()
+        if print_dir:
+            print(subdir.name, f"({len(imgs)} files)", end='\t')
+    if print_dir:
+        print()
     return impaths
 
 
