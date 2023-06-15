@@ -57,7 +57,10 @@ class FiguralScorer():
 
     def image_loader(self):
         '''A generator for loading images gradually'''
-        for impath in self.impaths:
+        return self._generic_image_loader(self.impaths)
+
+    def _generic_image_loader(self, ims):
+        for impath in ims:
             im = FiguralImage(impath).contrast(self.contrast_factor)
             if self.crop_bottom:
                 im = im.crop(0.85)
@@ -112,7 +115,7 @@ class FiguralScorer():
         
         return self.image_features
     
-    def get_zerosims(self, zero_terms, idx=None):
+    def get_zerosims(self, zero_terms, idx=True, meta=True):
         ''' Return average image similarity to other images
     
         zero terms should be a list of zero-originality terms for the given activity.
@@ -127,8 +130,14 @@ class FiguralScorer():
         simmat = img_features @ txt_features.t()
         x = simmat.cpu().numpy()
         stats = np.vstack([x.min(1), x.mean(1), np.sort(x, axis=1)[:, :3].mean(1)])
-        if idx is not None:
-            return pd.DataFrame(stats, index=['min_zlist', 'mean_zlist', 'lowest3_zlist'], columns=idx).T
+        if idx:
+            sims = pd.DataFrame(stats, index=['min_zlist', 'mean_zlist', 'lowest3_zlist'], columns=self.impaths).T.reset_index()
+            sims.columns = ['path', 'min_zlist', 'mean_zlist', 'lowest3_zlist']
+            sims['id'] = sims.path.apply(lambda x: x.stem)
+            sims.path = sims.path.apply(lambda x: str(x))
+            if meta:
+                sims = self._add_meta_to_df(sims)
+            return sims
         else:
             return stats
 
@@ -146,7 +155,6 @@ class FiguralScorer():
             sims.path = sims.path.apply(lambda x: str(x))
             if meta:
                 sims = self._add_meta_to_df(sims)
-            # add columns with meta to sims
             return sims
         else:
             return avg_sims
@@ -160,8 +168,8 @@ class FiguralScorer():
         
     def get_sims_to_target(self, target_path, idx=True, meta=True):
         ''' Return similarity of images to a target image (usually a blank image)'''
-        blankloader = self.image_loader([target_path], contrast_factor=4, crop_bottom=True)
-        blank_inputs = self.preprocess_imlist(blankloader, self.preprocess, device=self.device)
+        blankloader = self._generic_image_loader([target_path])
+        blank_inputs = list(self.preprocessed_image_loader(blankloader, batch_size=None))[0]
 
         img_features = self.get_image_features(normalize=True)
         with torch.no_grad():
@@ -172,9 +180,7 @@ class FiguralScorer():
 
         simmat = img_features @ blank_img_features.t()
         sims = simmat[:, 0].cpu().numpy()
-        if idx:
-            return pd.Series(sims, index=idx)
-        
+
         if idx:
             sims = pd.Series(sims, index=self.impaths).reset_index()
             sims.columns = ['path', 'blank_sim'] 

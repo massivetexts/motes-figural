@@ -4,14 +4,68 @@ tests:
   tasks:
   - name: bookleta
     directory: data/outputs/bookleta
+    blanks:
+        activity2j: ../../data/blanks/blank-bookleta_activity2j.png
+        activity1: ../../data/blanks/blank-bookleta_activity1.png
+        activity2h: ../../data/blanks/blank-bookleta_activity2h.png
+        activity2i: ../../data/blanks/blank-bookleta_activity2i.png
+        activity2d: ../../data/blanks/blank-bookleta_activity2d.png
+        activity2e: ../../data/blanks/blank-bookleta_activity2e.png
+        activity2g: ../../data/blanks/blank-bookleta_activity2g.png
+        activity2f: ../../data/blanks/blank-bookleta_activity2f.png
+        activity2b: ../../data/blanks/blank-bookleta_activity2b.png
+        activity2c: ../../data/blanks/blank-bookleta_activity2c.png
+        activity2a: ../../data/blanks/blank-bookleta_activity2a.png
   - name: bookletb
     directory: data/outputs/bookletb
+    blanks:
+        activity1: ../../data/blanks/blank-bookletb_activity1.png
+        activity2j: ../../data/blanks/blank-bookletb_activity2j.png
+        activity2i: ../../data/blanks/blank-bookletb_activity2i.png
+        activity2h: ../../data/blanks/blank-bookletb_activity2h.png
+        activity2e: ../../data/blanks/blank-bookletb_activity2e.png
+        activity2d: ../../data/blanks/blank-bookletb_activity2d.png
+        activity2f: ../../data/blanks/blank-bookletb_activity2f.png
+        activity2g: ../../data/blanks/blank-bookletb_activity2g.png
+        activity2c: ../../data/blanks/blank-bookletb_activity2c.png
+        activity2b: ../../data/blanks/blank-bookletb_activity2b.png
+        activity2a: ../../data/blanks/blank-bookletb_activity2a.png
 - name: audra
   tasks:
   - name: primary
     directory: ../../data/others/audra/drawings/primary_images
+    blanks:
+        Images_11: ../../../../data/others/audra/drawings/primary_images/Images_11_blank.png
+        Images_4: ../../../../data/others/audra/drawings/primary_images/Images_4_blank.png
+        Images_17: ../../../../data/others/audra/drawings/primary_images/Images_17_blank.png
+        Images_9: ../../../../data/others/audra/drawings/primary_images/Images_9_blank.png
+        Images_3: ../../../../data/others/audra/drawings/primary_images/Images_3_blank.png
+        Images_8: ../../../../data/others/audra/drawings/primary_images/Images_8_blank.png
+        Images_13: ../../../../data/others/audra/drawings/primary_images/Images_13_blank.png
+        Images_15: ../../../../data/others/audra/drawings/primary_images/Images_15_blank.png
+        Images_12: ../../../../data/others/audra/drawings/primary_images/Images_12_blank.png
+        Images_7: ../../../../data/others/audra/drawings/primary_images/Images_7_blank.png
+        Images_4.1_common: ../../../../data/others/audra/drawings/primary_images/Images_4.1_common_blank.png
+        Images_56: ../../../../data/others/audra/drawings/primary_images/Images_56_blank.png
+        Images_19: ../../../../data/others/audra/drawings/primary_images/Images_19_blank.png
   - name: general1
     directory: ../../data/others/audra/drawings/rater_generalization_one_images
+    blanks:
+      Images_2: ../../../../data/others/audra/drawings/rater_generalization_one_images/Images_2_blank.png
+      Images_4: ../../../../data/others/audra/drawings/rater_generalization_one_images/Images_4_blank.png
+      Images_3: ../../../../data/others/audra/drawings/rater_generalization_one_images/Images_3_blank.png
+      Images_5: ../../../../data/others/audra/drawings/rater_generalization_one_images/Images_5_blank.png
+      Images_6: ../../../../data/others/audra/drawings/rater_generalization_one_images/Images_6_blank.png
+      Images_1: ../../../../data/others/audra/drawings/rater_generalization_one_images/Images_1_blank.png
+      Images_7: ../../../../data/others/audra/drawings/rater_generalization_one_images/Images_7_blank.png
   - name: far
     directory: ../../data/others/audra/drawings/far_generalization_images
+    blanks:
+      Images_2: ../../../../data/others/audra/drawings/far_generalization_images/Images_2_blank.png
+      Images_4: ../../../../data/others/audra/drawings/far_generalization_images/Images_4_blank.png
+      Images_3: ../../../../data/others/audra/drawings/far_generalization_images/Images_3_blank.png
+      Images_5: ../../../../data/others/audra/drawings/far_generalization_images/Images_5_blank.png
+      Images_6: ../../../../data/others/audra/drawings/far_generalization_images/Images_6_blank.png
+      Images_1: ../../../../data/others/audra/drawings/far_generalization_images/Images_1_blank.png
+      Images_7: ../../../../data/others/audra/drawings/far_generalization_images/Images_7_blank.png
   

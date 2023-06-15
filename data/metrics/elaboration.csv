@@ -1,4 +1,4 @@
-test,path,id,booklet,elaboration_raw,activity
+test,path,id,task,elaboration_raw,activity
 ttct,../../data/outputs/bookleta/activity2b/94fd1-71561.jpg,94fd1-71561,bookleta,0.028029411764705883,activity2b
 ttct,../../data/outputs/bookleta/activity2b/9cf64-79099.jpg,9cf64-79099,bookleta,0.12417647058823529,activity2b
 ttct,../../data/outputs/bookleta/activity2b/c6e72-74881.jpg,c6e72-74881,bookleta,0.06338235294117647,activity2b
