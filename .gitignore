@@ -8,6 +8,8 @@ data/vids
 data/frames
 data/matches.jpg
 data/precleaning/
+data/img_features/
+data/txt_features/
 data/outputs/for_coding*
 # saved models don't really fit in git
 data/models

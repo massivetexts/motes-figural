@@ -4,6 +4,7 @@ tests:
   tasks:
   - name: bookleta
     directory: data/outputs/bookleta
+    truth: data/truth/ttct_bookleta_ground_truth.csv
     blanks:
         activity2j: ../../data/blanks/blank-bookleta_activity2j.png
         activity1: ../../data/blanks/blank-bookleta_activity1.png
@@ -18,6 +19,7 @@ tests:
         activity2a: ../../data/blanks/blank-bookleta_activity2a.png
   - name: bookletb
     directory: data/outputs/bookletb
+    truth: data/truth/ttct_bookletb_ground_truth.csv
     blanks:
         activity1: ../../data/blanks/blank-bookletb_activity1.png
         activity2j: ../../data/blanks/blank-bookletb_activity2j.png
@@ -34,6 +36,7 @@ tests:
   tasks:
   - name: primary
     directory: ../../data/others/audra/drawings/primary_images
+    truth: ../../data/others/audra/Ratings/JRT/primary_jrt.csv
     blanks:
         Images_11: ../../../../data/others/audra/drawings/primary_images/Images_11_blank.png
         Images_4: ../../../../data/others/audra/drawings/primary_images/Images_4_blank.png
@@ -50,6 +53,7 @@ tests:
         Images_19: ../../../../data/others/audra/drawings/primary_images/Images_19_blank.png
   - name: general1
     directory: ../../data/others/audra/drawings/rater_generalization_one_images
+    truth: ../../data/others/audra/Ratings/JRT/rg1_jrt.csv
     blanks:
       Images_2: ../../../../data/others/audra/drawings/rater_generalization_one_images/Images_2_blank.png
       Images_4: ../../../../data/others/audra/drawings/rater_generalization_one_images/Images_4_blank.png
@@ -60,6 +64,7 @@ tests:
       Images_7: ../../../../data/others/audra/drawings/rater_generalization_one_images/Images_7_blank.png
   - name: far
     directory: ../../data/others/audra/drawings/far_generalization_images
+    truth: ../../data/others/audra/Ratings/JRT/fg_jrt.csv
     blanks:
       Images_2: ../../../../data/others/audra/drawings/far_generalization_images/Images_2_blank.png
       Images_4: ../../../../data/others/audra/drawings/far_generalization_images/Images_4_blank.png
