@@ -18,12 +18,14 @@ class FiguralImage():
             self.im = enhancer.enhance(factor)
         return self
 
+
     def crop(self, crop_prop=1):
         ''' Crops bottom'''
         if crop_prop < 1:
             w,h = self.im.size
             self.im = self.im.crop((0,0,w, int(crop_prop*h)))
         return self
+    
 
     def elaboration(self, cutoff=245, raw=False, crop_prop=0.85):
         '''
@@ -46,7 +48,8 @@ class FiguralScorer():
 
     '''A class for scoring figural responses as a batch'''
 
-    def __init__(self, impaths, model, preprocess, device='cpu', contrast_factor=4, crop_bottom=False):
+    def __init__(self, impaths, model, preprocess, device='cpu', contrast_factor=4, crop_bottom=False, save_location=None):
+        ''' save_location: if provided, will save image_features to this location, and load from it if it exists'''
         self.impaths = impaths
         self.model = model
         self.preprocess = preprocess
@@ -54,6 +57,7 @@ class FiguralScorer():
         self.image_features = None
         self.contrast_factor = contrast_factor
         self.crop_bottom = crop_bottom
+        self.save_location = save_location
 
     def image_loader(self):
         '''A generator for loading images gradually'''
@@ -92,9 +96,19 @@ class FiguralScorer():
                 batch = []
     
     def get_image_features(self, normalize=True, batch_size=500, force=False, use_tqdm=True):
-        ''' Get image features for all images in impaths, preprocessed in batches. Saves the features to self.image_features. '''
+        ''' Get image features for all images in impaths, preprocessed in batches. Saves the features to self.image_features.'''
         if not force and self.image_features is not None:
             return self.image_features
+        if not force and self.save_location:
+            state_dict = None
+            try:
+                state_dict = torch.load(self.save_location)
+            except FileNotFoundError:
+                pass
+            if state_dict:
+                assert state_dict['impaths'] == self.impaths, "Loaded paths don't match class impaths; this case not yet handled"
+                self.image_features = state_dict['image_features']
+                return self.image_features
         
         imload = self.image_loader()
         preprocessed_imload = self.preprocessed_image_loader(imload, batch_size=batch_size)
@@ -113,10 +127,13 @@ class FiguralScorer():
         if normalize:
             self.image_features = self.image_features / self.image_features.norm(dim=1, keepdim=True)
         
+        if self.save_location:
+            torch.save(dict(impaths=self.impaths, image_features = self.image_features), self.save_location)
         return self.image_features
     
-    def get_zerosims(self, zero_terms, idx=True, meta=True):
-        ''' Return average image similarity to other images
+    def get_zerosims(self, zero_terms, idx=True, meta=True, distance=False):
+        ''' Return average image similarity to other images. This is *similarity*, so higher number
+        means more similar (and, in semantic models, less original).
     
         zero terms should be a list of zero-originality terms for the given activity.
         '''
@@ -128,11 +145,22 @@ class FiguralScorer():
         txt_features = txt_features / txt_features.norm(dim=1, keepdim=True)
         img_features = self.get_image_features(normalize=True)
         simmat = img_features @ txt_features.t()
+        # convert from similarity to originality - this assumes that similarity was 0-1 which
+        # is not true - it's -1 to 1. However, in practice, It's never violated in a case like 
+        # this, so just zero any negative similarity
+        if distance:
+            simmat[simmat < 0] = 0
+            simmat = 1 - simmat
         x = simmat.cpu().numpy()
-        stats = np.vstack([x.min(1), x.mean(1), np.sort(x, axis=1)[:, :3].mean(1)])
+        if distance:
+            stats = np.vstack([x.min(1), x.max(1), x.mean(1), np.sort(x, axis=1)[:, :3].mean(1)])
+            colnames = ['zlist_least_dist', 'zlist_most_dist', 'zlist_mean_dist', 'zlist_3least_dist']
+        else:
+            stats = np.vstack([x.max(1), x.min(1), x.mean(1), np.sort(x, axis=1)[:, -3:].mean(1)])
+            colnames = ['zlist_most_sim', 'zlist_least_sim', 'zlist_mean_sim', 'zlist_3most_sim']
         if idx:
-            sims = pd.DataFrame(stats, index=['min_zlist', 'mean_zlist', 'lowest3_zlist'], columns=self.impaths).T.reset_index()
-            sims.columns = ['path', 'min_zlist', 'mean_zlist', 'lowest3_zlist']
+            sims = pd.DataFrame(stats, index=colnames, columns=self.impaths).T.reset_index()
+            sims.columns = ['path'] + colnames
             sims['id'] = sims.path.apply(lambda x: x.stem)
             sims.path = sims.path.apply(lambda x: str(x))
             if meta:
@@ -141,16 +169,26 @@ class FiguralScorer():
         else:
             return stats
 
-    def get_avg_sims(self, idx=True, meta=True):
-        ''' Return average image similarity to other images.
+    def get_avg_sims(self, idx=True, meta=True, distance=False):
+        ''' Return average image similarity to other images. This is *similarity*, so higher number 
+        means more similar (and, in semantic models, less original).
         
         idx=True returns a DataFrame with index=impaths, else returns numpy'''
         img_features = self.get_image_features(normalize=True)
         simmat = img_features @ img_features.t()
-        avg_sims = simmat.sum(1).sub(1).div(simmat.shape[0]-1).cpu().numpy()
+        # get the average similarity to all other images (sub 1, to remove similarity with itself,
+        # and divide by n-1, again ignore the similarity with self)
+        avg_sims = simmat.sum(1).sub(1).div(simmat.shape[0]-1)
+        if distance:
+            avg_sims[avg_sims < 0] = 0
+            avg_sims = 1 - avg_sims
+            colnames = ['avg_dist']
+        else:
+            colnames = ['avg_sim']
+        avg_sims = avg_sims.cpu().numpy()
         if idx:
             sims = pd.Series(avg_sims, index=self.impaths).reset_index()
-            sims.columns = ['path', 'avg_sim'] 
+            sims.columns = ['path'] + colnames
             sims['id'] = sims.path.apply(lambda x: x.stem)
             sims.path = sims.path.apply(lambda x: str(x))
             if meta:
@@ -166,7 +204,7 @@ class FiguralScorer():
             df[k] = v
         return df
         
-    def get_sims_to_target(self, target_path, idx=True, meta=True):
+    def get_sims_to_target(self, target_path, idx=True, meta=True, distance=False):
         ''' Return similarity of images to a target image (usually a blank image)'''
         blankloader = self._generic_image_loader([target_path])
         blank_inputs = list(self.preprocessed_image_loader(blankloader, batch_size=None))[0]
@@ -179,16 +217,21 @@ class FiguralScorer():
         blank_img_features = blank_img_features / blank_img_features.norm(dim=1, keepdim=True)
 
         simmat = img_features @ blank_img_features.t()
+        if distance:
+            simmat[simmat < 0] = 0
+            simmat = 1 - simmat
+            colnames = ['blank_dist']
+        else:
+            colnames = ['blank_sim']
         sims = simmat[:, 0].cpu().numpy()
 
         if idx:
             sims = pd.Series(sims, index=self.impaths).reset_index()
-            sims.columns = ['path', 'blank_sim'] 
+            sims.columns = ['path'] + colnames
             sims['id'] = sims.path.apply(lambda x: x.stem)
             sims.path = sims.path.apply(lambda x: str(x))
             if meta:
                 sims = self._add_meta_to_df(sims)
-            # add columns with meta to sims
             return sims
         else:
             return sims
