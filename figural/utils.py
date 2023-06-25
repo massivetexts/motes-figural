@@ -34,7 +34,14 @@ def prep_audra_gt(df, task):
     df.columns = ['id', 'O']
     df['task'] = task
     df['test'] = 'audra'
-    df['activity'] = "Images_" + df['id'].apply(lambda x: x.split('_')[1])
+    if task == 'primary':
+        actidx, partidx = 1, 0 # naming convention ({int}_{int} is reversed for primary task
+    else:
+        actidx, partidx = 0, 1
+    df['activity'] = "Images_" + df['id'].apply(lambda x: x.split('_')[actidx])
+    if task == 'far':
+        df['activity'] = df['activity'].str.replace('_O', '_')
+    df['participant'] = df['id'].apply(lambda x: x.split('_')[partidx]) #.astype(int)
     return df
 
 def task_ref(root_dir, activity_name_match=None, print_dir=False):
@@ -86,16 +93,9 @@ def grammar(x):
         return f"a {x}"
     
 
-def load_data_and_gt(configpath='../../config.yaml', results_path='../../data/metrics/all_data.csv',
-                     seed=1234, test_prop=0.1):
-    import numpy as np
-    from figural.utils import prep_audra_gt
-
-    rng = np.random.default_rng(seed=seed)
-
-    meta = load_config(configpath)
+def load_gt(meta):
+    ''' Meta is a config file such as the yaml loaded with load_config. See config.yaml in repo for an example.'''
     root_dir = Path(meta['root_dir'])
-
     all_gt = []
     for test in meta['tests']:
         for task in test['tasks']:
@@ -107,6 +107,16 @@ def load_data_and_gt(configpath='../../config.yaml', results_path='../../data/me
                 df['test'] = 'ttct'
             all_gt.append(df)
     all_gt = pd.concat(all_gt)
+    return all_gt
+
+def load_data_and_gt(meta, results_path='../../data/metrics/all_data.csv',
+                     seed=1234, test_prop=0.1):
+    ''' Meta is a config file such as the yaml loaded with load_config. See config.yaml in repo for an example.'''
+    import numpy as np
+
+    rng = np.random.default_rng(seed=seed)
+    
+    all_gt = load_gt(meta)
     print("Ground Truth size: ", all_gt.shape)
 
     data = pd.read_csv(results_path, index_col=0)
@@ -121,11 +131,12 @@ def load_data_and_gt(configpath='../../config.yaml', results_path='../../data/me
     for col in ['F', 'O', 'T', 'E', 'R', 'C']:
         data[col] = pd.to_numeric(data[col], errors='coerce')
 
-    # remove some data errors
-    data.loc[data['F'] > 1, 'F'] = np.NaN
-    data.loc[data['T'] > 3, 'T'] = np.NaN
-    data.loc[data['R'] > 2, 'R'] = np.NaN
-    data.loc[data['O'] > 1, 'O'] = np.NaN
+    # remove some ttct data errors
+    ttct = data['test'] == 'ttct'
+    data.loc[ttct & (data['F'] > 1), 'F'] = np.NaN
+    data.loc[ttct & (data['T'] > 3), 'T'] = np.NaN
+    data.loc[ttct & (data['R'] > 2), 'R'] = np.NaN
+    data.loc[ttct & (data['O'] > 1), 'O'] = np.NaN
 
     # add - if using - a test/train sample
     data['testset'] = (rng.random(size=len(data)) < test_prop)
