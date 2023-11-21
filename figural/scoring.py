@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 from tqdm.auto import tqdm
 import clip
+from pathlib import Path
 
 class FiguralImage():
 
@@ -48,7 +49,7 @@ class FiguralScorer():
 
     '''A class for scoring figural responses as a batch'''
 
-    def __init__(self, impaths, model, preprocess, device='cpu', contrast_factor=4, crop_bottom=False, save_location=None):
+    def __init__(self, impaths, model, preprocess, device='cpu', contrast_factor=1, crop_bottom=False, save_location=None):
         ''' save_location: if provided, will save image_features to this location, and load from it if it exists'''
         self.impaths = impaths
         self.model = model
@@ -58,6 +59,7 @@ class FiguralScorer():
         self.contrast_factor = contrast_factor
         self.crop_bottom = crop_bottom
         self.save_location = save_location
+        Path(save_location).parent.mkdir(exist_ok=True, parents=True)
 
     def image_loader(self):
         '''A generator for loading images gradually'''
@@ -124,6 +126,7 @@ class FiguralScorer():
                 self.image_features = batch_features
             else:
                 self.image_features = torch.cat([self.image_features, batch_features])
+                
         if normalize:
             self.image_features = self.image_features / self.image_features.norm(dim=1, keepdim=True)
         
