@@ -3,8 +3,48 @@ from pathlib import Path
 from PIL import Image
 import pandas as pd
 from scipy.stats import pearsonr
+from sklearn.preprocessing import MinMaxScaler
 import yaml
 from pathlib import Path
+import numpy as np
+
+def get_regression_metrics(test_y, y_pred):
+    ''' Get metrics for a regression problem'''
+    from sklearn.metrics import mean_squared_error, mean_absolute_error, r2_score, explained_variance_score
+    mse = mean_squared_error(test_y, y_pred)
+    rmse = np.sqrt(mse)
+    #mae = mean_absolute_error(test_y, y_pred)
+    r2 = r2_score(test_y, y_pred)
+    pearson_r, r_pval = pearsonr(test_y, y_pred)
+    #evs = explained_variance_score(test_y, y_pred)
+
+    return {'mse': mse, 'rmse': rmse,
+            'r2': r2, 'pearson_r': pearson_r, 'r_pval': r_pval, 'support': len(test_y)}
+
+def get_classification_metrics(test_y, y_pred):
+    ''' Get metrics for binary class classification'''
+    from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, matthews_corrcoef
+    acc = accuracy_score(test_y, y_pred)
+    prec = precision_score(test_y, y_pred)
+    rec = recall_score(test_y, y_pred)
+    f1 = f1_score(test_y, y_pred)
+    roc_auc = roc_auc_score(test_y, y_pred)
+    mcc = matthews_corrcoef(test_y, y_pred)
+    pearson_r, _ = pearsonr(test_y, y_pred)
+    return {'accuracy': acc, 'precision': prec, 'recall': rec, 'f1': f1, 'pearson_r': pearson_r,
+            'roc_auc': roc_auc, 'mcc': mcc, 'support': len(test_y)}
+
+def print_metrics(test_y, y_pred, class_or_regression='class'):
+    if class_or_regression == 'class':
+        metrics = get_classification_metrics(test_y, y_pred)
+    elif class_or_regression == 'regression':
+        metrics = get_regression_metrics(test_y, y_pred)
+    for metric, value in metrics.items():
+        if metric == 'support':
+            print(f"{metric.capitalize()}: {value}")
+        else:
+            print(f"{metric.capitalize()}: {value:.2f}")
+    return metrics
 
 def autoset_device():
     if torch.cuda.is_available():
@@ -31,6 +71,7 @@ def grouped_corr(results, groupcols, targetcol, predcol, inverse_col=False):
     return subset.groupby(groupcols).apply(corr_func).apply(pd.Series).rename(columns={0: 'corr', 1: 'pval'})
 
 def prep_audra_gt(df, task):
+    scaler = MinMaxScaler()
     df.columns = ['id', 'O']
     df['task'] = task
     df['test'] = 'audra'
@@ -42,6 +83,8 @@ def prep_audra_gt(df, task):
     if task == 'far':
         df['activity'] = df['activity'].str.replace('_O', '_')
     df['participant'] = df['id'].apply(lambda x: x.split('_')[partidx]) #.astype(int)
+    df['O_raw'] = df['O']
+    df['O'] = scaler.fit_transform(df['O_raw'].values.reshape(-1, 1))[:,0]
     return df
 
 def task_ref(root_dir, activity_name_match=None, print_dir=False):
@@ -138,8 +181,11 @@ def load_data_and_gt(meta, results_path='../../data/metrics/all_data.csv',
     data.loc[ttct & (data['R'] > 2), 'R'] = np.NaN
     data.loc[ttct & (data['O'] > 1), 'O'] = np.NaN
 
+    # deduplicate, in case something weird happened
+    data = data.drop_duplicates(subset=['test', 'task', 'activity', 'id'])
     # add - if using - a test/train sample
     data['testset'] = (rng.random(size=len(data)) < test_prop)
+
     return data
 
 def load_config(configpath='../../config.yaml'):
@@ -158,7 +204,7 @@ def load_scorers(model, preprocess, meta, load_features=True, include_cropped=Fa
     loadedtasks = []
     root_dir = Path(meta['root_dir'])
 
-    contrast_factor = 4
+    contrast_factor = 1
     for test in meta['tests']:
         for task in test['tasks']:
             impaths = task_ref(root_dir / task['directory'])
@@ -180,7 +226,8 @@ def load_scorers(model, preprocess, meta, load_features=True, include_cropped=Fa
                                         save_location=save_location,
                                         crop_bottom=crop_option)
                     if load_features:
-                        scorer.get_image_features()
+                        feats = scorer.get_image_features(normalize=True) # not used now, but saved to cache
+                        assert len(scorer.impaths) == len(feats), "Number of image paths and features don't match"
 
                     loadedtasks.append(dict(
                         test = test['name'],
