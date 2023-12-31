@@ -147,3 +147,8 @@ infoboxes.zip
 
 #
 __MACOSX
+
+data/blank*
+data/outputs/booklet*
+
+
