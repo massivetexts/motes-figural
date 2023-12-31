@@ -150,5 +150,6 @@ __MACOSX
 
 data/blank*
 data/outputs/booklet*
+data/eval_results/supervised-feature/old
 
 
