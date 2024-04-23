@@ -153,8 +153,13 @@ def load_gt(meta):
     return all_gt
 
 def load_data_and_gt(meta, results_path='../../data/metrics/all_data.csv',
-                     seed=1234, test_prop=0.1):
-    ''' Meta is a config file such as the yaml loaded with load_config. See config.yaml in repo for an example.'''
+                     audra_split_match=True,
+                     seed=1234, test_prop=0.15):
+    ''' Meta is a config file such as the yaml loaded with load_config. See config.yaml in repo for an example.
+    
+    audra_split_match: If True, load the MTCI sampling from the AuDrA code release.
+    '''
+
     import numpy as np
 
     rng = np.random.default_rng(seed=seed)
@@ -185,8 +190,24 @@ def load_data_and_gt(meta, results_path='../../data/metrics/all_data.csv',
     data = data.drop_duplicates(subset=['test', 'task', 'activity', 'id'])
     # add - if using - a test/train sample
     data['testset'] = (rng.random(size=len(data)) < test_prop)
+    if audra_split_match:
+        print("Using the test set and train set from AuDrA paper for primary MTCI task")
+        analysis_path = Path(meta['root_dir']) / '../../data/others/audra/Analysis'
+        test_fnames = pd.read_csv(analysis_path / 'test_storage_dataframe_revised.csv').fname.tolist()
+        val_fnames = pd.read_csv(analysis_path / 'validation_storage_dataframe_revised.csv').fname.tolist()
+
+        def stem_in_list(path_str, l):
+            stem = Path(path_str).stem
+            return stem in l
+
+        primatches = (data['test'] == 'audra') & (data['task'] == 'primary')
+        data.loc[primatches, 'testset'] = data.loc[primatches].path.apply(lambda x: stem_in_list(x, test_fnames))
+        data.loc[primatches, 'mtcivalset']= data.loc[primatches].path.apply(lambda x: stem_in_list(x, val_fnames))
+        print(f"Dropping {data['mtcivalset'].sum()} MTCI val samples; not used here")
+        data = data[~data['mtcivalset'].fillna(False)].drop(columns='mtcivalset')
 
     return data
+
 
 def load_config(configpath='../../config.yaml'):
     # load config.yaml
