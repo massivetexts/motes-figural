@@ -10,5 +10,8 @@ setup(name='MOTES Figural',
       author_email="peter.organisciak@du.edu",
       license="MIT",
       install_requires=["pytesseract", "opencv-python", "pdf2image", "ftfy", 'regex', "tqdm",
-                        "git+https://github.com/openai/CLIP.git", "xgboost", "torch"]
+                        "clip @ git+https://github.com/openai/CLIP.git", "xgboost", "torch"],
+      dependency_links=[
+        'git+https://github.com/openai/CLIP.git#egg=clip'
+    ]
 )
